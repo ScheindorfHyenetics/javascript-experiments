@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+   loadimg.html
+
+   Copyright 2017 SCHEINDORF HERLJOS <herljos@hyenetics.science>
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.
+
+
+-->
+<head>
+<meta charset="utf-8" />
+<title>loadimg</title>
+<meta name="generator" content="Geany 1.29" />
+<script src="./cvmatrix.js"></script>
+</head>
+<body>
+<input type='file' accept='image/*' onchange='loadImg(event)'><br></br>
+<div>
+<canvas id="myCanvas" width="400" height="400" style="border:1px solid #000000;display:inline-block;"></canvas>
+<canvas id="myResCanvas" width="400" height="400" style="border:1px solid #000000;display:inline-block;"></canvas>
+</div><br></br>
+<script>
+let table = document.createElement('table');
+cvm = new cvMatrix(9,1,false,-1);
+function proxyval(cx,cy) {
+    return function (val) {
+        cvm.matrix[cy][cx] = val;
+        console.log('changed '+cx+' '+cy+' to '+val);
+    }
+}
+for (let r = 0; r < 9; r++) {
+    let row = document.createElement('tr');
+    for (let c = 0; c < 9; c++) {
+        let col = document.createElement('td');
+        col.innerHTML = '<input style="width:30px" type="textbox" onchange="proxyval('+r+','+c+')(this.value);" value="0"></input>';
+        row.appendChild(col);
+    }
+    table.appendChild(row);
+}
+document.body.appendChild(table);
+</script>
+<button type="button" onclick="doconvolution();">Upload</button><br>
+<script>
+var loadImg = function(event) {
+    var output = document.getElementById('myCanvas');
+    var context = output.getContext('2d');
+    var input = event.target;
+    var reader = new FileReader();
+    reader.onload = function() {
+        var dataURL = reader.result;
+        var imageObj = new Image();
+        imageObj.src = dataURL;
+        imageObj.onload=function(){
+            context.drawImage(imageObj,1,1,398,398);
+        }
+    }
+    reader.readAsDataURL(input.files[0]);
+}
+function doconvolution() {
+    let rescan = document.getElementById('myResCanvas');
+    let outctx = rescan.getContext('2d');
+    let input = document.getElementById('myCanvas');
+    let inctx = input.getContext('2d');
+    let img = inctx.getImageData(0,0,399,399);
+    let red = new Matrix(img.width,img.height);
+    let green = new Matrix(img.width,img.height);
+    let blue = new Matrix(img.width,img.height);
+    let r,g,b,x,y,nxt;
+    let ctm = createthreematrices(img);
+    nxt = ctm.next();
+    while (nxt.done === false) {
+        [r,g,b,x,y] = nxt.value;
+        red.matrix[y][x] = r;
+        green.matrix[y][x] = g;
+        blue.matrix[y][x] = b;
+        nxt = ctm.next();
+    }
+    red = cvm.convolve(red);
+    green = cvm.convolve(green);
+    blue = cvm.convolve(blue);
+    let newdata = new Uint8ClampedArray(img.height*img.width*4);
+    let seg = 0;
+    for (let i = 0; i < red.y; i++) {
+        for (let j = 0; j < red.x; j++) {
+            newdata[seg] = red.matrix[i][j];
+            newdata[seg+1] = green.matrix[i][j];
+            newdata[seg+2] = blue.matrix[i][j];
+            newdata[seg+3] = 255;
+            seg += 4;
+        }
+    }
+    let newimg = new ImageData(newdata,img.width,img.height);
+    outctx.putImageData(newimg,0,0);
+}
+function* createthreematrices(img) {
+    let w = img.width, x = 0, y = 0;
+    for (let i = 0; i < img.data.length; i += 4) {
+        yield [img.data[i],img.data[i+1],img.data[i+2],x,y];
+        x += 1;
+        if (x >= w) {
+            x = 0;
+            y += 1;
+        }
+    }
+}
+</script>
+</body>
+</html>
