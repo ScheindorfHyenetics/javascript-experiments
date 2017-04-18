@@ -1,0 +1,110 @@
+<html><head>
+<title> random seed challange </title>
+<style>
+.fill {
+position: absolute;
+left: 0px; top: 0px;
+width: 100%; height: 100%;
+margin: 0px; padding: 10px;
+}
+#main {
+z-index: 0;
+background-color: rgb(250,250,250);
+}
+</style>
+<script>
+    function run() {
+        main = document.getElementById('main');
+        table = document.getElementById('log');
+        table.innerHTML += "> Generate a new seed";
+        let seed = getASCIISeedFromCrypto(),
+            s = seed.seed,
+            b = seed.bytes;
+        table.innerHTML += '     : '+s+"\n";
+        table.innerHTML += b.slice(0,25).reduce((r,e)=>r+'| '+e+' |','') + "\n";
+        table.innerHTML += b.slice(25,50).reduce((r,e)=>r+'| '+e+' |','') + "\n";
+        table.innerHTML += b.slice(50,75).reduce((r,e)=>r+'| '+e+' |','') + "\n";
+        table.innerHTML += b.slice(75,100).reduce((r,e)=>r+'| '+e+' |','') + "\n";
+        table.innerHTML += "> Initialize Math.seedrandom module with seed\n";
+        var rnd = new Math.seedrandom(s);
+        table.innerHTML += "> Get an offset ";
+        var offset = giveOffset();
+        table.innerHTML += '   ...  '+offset.offset+'  ['+offset.bytes.join(':')+"]\n";
+        offset = offset.offset;
+        table.innerHTML += "> generate random numbers until discover the 12 numbers after "+offset+"\n";
+        var seq = discoverRandomSequence(s,offset,12);
+        table.innerHTML += "> > sequence is : "+seq.sequence.join(' ')+"\n";
+        var challange = seq.sequence.slice(0,6);
+        var proof = seq.sequence.slice(6,12);
+        table.innerHTML += "   | "+challange.join(' | ')+" | will be the challange question \n";
+        table.innerHTML += "   | "+proof.join(' | ')+" | will be the proof ankwser \n";
+        table.innerHTML += "  * *  \n";
+        table.innerHTML += " * * *\n";
+        table.innerHTML += "  * *  \n";
+        table.innerHTML += "> Now, reinitializing Math.seedrandom module with seed\n";
+        table.innerHTML += "> and try to find offset using the challange request vector\n";
+        var seek = seekForOffset(s,challange,6);
+        table.innerHTML += "> got results :\n";
+        for (let k in seek) { table.innerHTML += " # " + k + " : " + seek[k].toString() + "\n" };
+        table.innerHTML += "   *  \n";
+        table.innerHTML += " * * *\n";
+        table.innerHTML += "   *  \n";
+        table.innerHTML += "> now will try three times the challange vector against arbitrary seeded random generators\n";
+        let otherseed;
+        for (let n = 0; n < 3; n++) {
+            otherseed = getASCIISeedFromCrypto(),
+            s = otherseed.seed,
+            seek = seekForOffset(s,challange,6);
+            table.innerHTML += " * tentative #" + n + ":\n";
+            for (let k in seek) { table.innerHTML += " # " + k + " : " + seek[k] + "\n" };
+            table.innerHTML += "--\n";
+        }
+        table.innerHTML += " * . *\n";
+        table.innerHTML += " . * .\n";
+        table.innerHTML += " * . *\n";
+        table.innerHTML += "> trying now the format I made to pack sequence of 6 signed Int32 numbers\n";
+        let challangepack = encodeSequenceString(challange);
+        table.innerHTML += "> packing challange vector :\n";
+        for (let k in challangepack) { table.innerHTML += " # " + k + " : " + challangepack[k] + "\n" };
+        table.innerHTML += "> packing proof vector :\n";
+        let proofpack = encodeSequenceString(proof);
+        for (let k in proofpack) { table.innerHTML += " # " + k + " : " + proofpack[k] + "\n" };
+        table.innerHTML += "> decoding challange vector :\n";
+        let decodechallange = decodeSequenceString(challangepack.b64String);
+        for (let k in decodechallange) { table.innerHTML += " # " + k + " : " + decodechallange[k] + "\n" };
+        table.innerHTML += "        * challange :"+challange.join('  ')+"\n";
+        table.innerHTML += "> decoding proof vector :\n";
+        let decodeproof = decodeSequenceString(proofpack.b64String);
+        for (let k in decodeproof) { table.innerHTML += " # " + k + " : " + decodeproof[k] + "\n" };
+        table.innerHTML += "        * proof :"+proof.join('  ')+"\n";
+    }
+
+    function infiniteBruteforceAttempt(challange) {
+            var seed = getASCIISeedFromCrypto().seed,
+                last = {found:false};
+                runs = 0;
+            function retry() {
+                last = seekForOffset(seed,challange,6);
+                runs++;
+                if (last.found == false) {
+                    seed = getASCIISeedFromCrypto().seed;
+                    if (runs % 1000 == 0) {console.log('ran '+runs+' attempts to discover '+challange+' on random seeded generators')}
+                    setTimeout(retry,0);
+                } else {
+                    let str = 'found : '+last.seed+' offset '+last.offset+' read '+readnumbers.map((i)=>i.join(',')).join('|');
+                    alert(str);
+                    console.log(str,runs+' tries');
+                    console.log(last);
+                }
+            }
+            retry();
+    }
+</script>
+<script src="./seedrandom/seedrandom.js"></script>
+<script src="./randomchallange.js"></script>
+</head><body onload="run()">
+<div id="main" class="fill">
+<pre id="log" style="width:100%">
+</pre>
+</div>
+</body></html>
